@@ -106,6 +106,7 @@ export interface IRemoteErrorParams {
 
 export interface IRemoteServer {
     dispatchControllerAction(params: IDispatchControllerActionParams): Promise<void>;
+    navigate(params: { url: string }): Promise<void>;
 }
 export interface IDispatchControllerActionParams {
     controllerId: string;
