@@ -6,16 +6,15 @@ class Styled extends React.Component<{
 }, {}> {
     public render() {
         return React.createElement(StyledContext.Consumer, {
-            children: (params: { id: string }) => {
-                const id = params.id;
+            children: (id: string) => {
                 const jss = JSS.create({});
                 jss.use({
                     onProcessRule: ((rule: any) => {
-                        rule.selectorText = ".s__s" + id + " " + rule.key;
+                        rule.selectorText = "." + id + " " + rule.key;
                     }) as any,
                 });
                 const styleSheet = jss.createStyleSheet(this.props.styles);
-                return React.createElement("div", { className: "s__s" + id }, [
+                return React.createElement("div", { className: "" + id }, [
                     React.createElement("noindex", {
                         key: "style",
                         dangerouslySetInnerHTML: { __html: `<style type="text/css">${styleSheet.toString()}</style>` },
