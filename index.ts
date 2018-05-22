@@ -1,14 +1,6 @@
 export const INITIAL_VAR = "__initial";
 export const REQUIRE_FUNC_NAME = "loadModule";
 
-export { default as NavigateContext } from "./lib/NavigateContext";
-export { default as SeansStatusContext } from "./lib/SeansStatusContext";
-export { default as NetworkStatusContext } from "./lib/NetworkStatusContext";
-export { default as HistoryContext } from "./lib/HistoryContext";
-export { default as StyledContext } from "./lib/StyledContext";
-export { default as Link } from "./lib/Link";
-export { default as Styled } from "./lib/Styled";
-
 export interface ISeanceInitialInfo {
     seanceId: string;
     page: IPage;
@@ -45,7 +37,8 @@ export interface IPageMetaInfo {
 
 export interface IRemoteFrameControllerDataParams {
     frameId: string;
-    data: any;
+    fieldName: string;
+    value: any;
 }
 export interface IRemoteFrameControllerDispatchParams {
     frameId: string;
@@ -98,7 +91,8 @@ export interface IRemoteClient {
 }
 export interface INewControllerDataParams {
     controllerId: string;
-    data: any;
+    fieldName: string;
+    value: any;
 }
 export interface IRemoteErrorParams {
     text: string;
