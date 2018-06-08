@@ -1,14 +1,17 @@
 import debug = require("debug");
 import { BehaviorSubject, Subscription } from "rxjs";
-import { take } from "rxjs/operators";
+import { skip, take } from "rxjs/operators";
 import {
     IController, IControllerActionParams, IControllerDataParams, IControllersFactory, IPage,
-    IRouter, IRoutersFactory,
+    IRoute, IRoutePage,
+    IRouter,
+    IRoutersFactory,
     ISeance,
     ISeanceClient,
     ISeanceInitializeParams,
 } from "./typings";
 import { fillPage, routeToPage } from "./util/page";
+import PageComparator from "./util/PageComparator";
 
 export interface ISeanceConfig {
     RoutersFactory: IRoutersFactory;
@@ -37,16 +40,18 @@ class Seance implements ISeance {
         const page = await routeToPage(route.page);
         const controllers = await fillPage(this.config.ControllersFactory, page);
         controllers.map(({ id, controller }) => {
-            const subscriptions = Object.keys(controller.data).map((fieldName) => {
-                return controller.data[fieldName].subscribe((value) => this.emitControllerData({
+            const controllerData = controller.data;
+            const subscriptions = controllerData ? Object.keys(controller.data || {}).map((fieldName) => {
+                return controllerData[fieldName].subscribe((value) => this.emitControllerData({
                     id,
                     fieldName,
                     value,
                 }));
-            });
+            }) : [];
             this.controllers[id] = { controller, subscriptions };
         });
         this.page$ = new BehaviorSubject(page);
+        this.router.route$.pipe(skip(1)).subscribe((r) => this.onNewRoute(r));
     }
     public connect(client: ISeanceClient) {
         this.client = client;
@@ -55,8 +60,19 @@ class Seance implements ISeance {
 
         this.page$.subscribe((page) => client.emitNewPage.next({ page }));
     }
+    protected async onNewRoute(route: IRoute) {
+        debug("seance")("new route", route);
+        if (route.type === "redirect") {
+            this.navigate(route.url);
+            return;
+        }
+        if (route.type === "page") {
+            this.page$.next(await this.replacePage(this.page$.getValue(), route.page));
+            return;
+        }
+    }
     protected navigate = (url: string) => {
-        //
+        this.url$.next(url);
     }
     protected emitControllerData = (params: IControllerDataParams) => {
         if (this.client) {
@@ -66,7 +82,55 @@ class Seance implements ISeance {
     protected emitControllerAction = (params: IControllerActionParams) => {
         const controllerItem = this.controllers[params.id];
         if (controllerItem) {
-            controllerItem.controller.actions[params.actionName].next(params.params);
+            const controllerActions = controllerItem.controller.actions;
+            if (!controllerActions || !controllerActions[params.actionName]) {
+                throw new Error("Controller has not action " + params.actionName);
+            }
+            controllerActions[params.actionName].next(params.params);
+        }
+    }
+
+    protected async replacePage(oldPage: IPage, routePage: IRoutePage): Promise<IPage> {
+        const newPage = await routeToPage(routePage);
+        const pageComparator = new PageComparator();
+        const info = pageComparator.getCompareInfo(oldPage, newPage);
+        // TODO WAIT?
+        info.frameidsForRemoving.map((id) => this.removeController(id));
+        const changeParamsPromises = info.frameForChangeParams.map(async (frame) => {
+            const controller = this.controllers[frame.frameId].controller;
+            if (controller.onChangeParams) {
+                return controller.onChangeParams(frame.params);
+            }
+        });
+        await Promise.all<any>(info.newFrames.map(async (frame) => {
+            const controller = await this.config.ControllersFactory.create(frame.frameName);
+            if (typeof (controller.init) === "function") {
+                await controller.init();
+            }
+            const id = frame.frameId;
+            const data: any = {};
+            const controllerData = controller.data;
+            const subscriptions = controllerData ? Object.keys(controllerData).map((fieldName) => {
+                data[fieldName] = controllerData[fieldName].getValue();
+                return controllerData[fieldName].subscribe((value) => this.emitControllerData({
+                    id,
+                    fieldName,
+                    value,
+                }));
+            }) : [];
+            this.controllers[id] = { controller, subscriptions };
+            frame.data = data;
+        }).concat(changeParamsPromises));
+        return info.page;
+    }
+    protected async removeController(id: string) {
+        const controllerItem = this.controllers[id];
+        if (controllerItem) {
+            delete this.controllers[id];
+            if (typeof (controllerItem.controller.dispose) === "function") {
+                await controllerItem.controller.dispose();
+            }
+            controllerItem.subscriptions.map((s) => s.unsubscribe());
         }
     }
 }

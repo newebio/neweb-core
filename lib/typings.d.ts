@@ -3,7 +3,7 @@ import { EventEmitter } from "events";
 import Seance from "./Seance";
 
 export type NetworkStatus = "connecting" | "connected" | "disconnected";
-
+export type NavigateStatus = "navigating" | "navigated";
 export interface IClientPageRenderer {
     connect(params: IClientPageRendererConnectParams): void | Promise<void>;
     onControllerAction: Observable<IControllerActionParams>;
@@ -61,8 +61,11 @@ export interface IControllersFactory {
     create(frameName: string): IController | Promise<IController>;
 }
 export interface IController {
-    data: { [index: string]: BehaviorSubject<any> };
-    actions: { [index: string]: Subject<any> };
+    dispose?: () => Promise<void> | void;
+    init?: () => Promise<void> | void;
+    onChangeParams?: (params: any) => void | Promise<void>;
+    data?: { [index: string]: BehaviorSubject<any> };
+    actions?: { [index: string]: Subject<any> };
 }
 
 // transports

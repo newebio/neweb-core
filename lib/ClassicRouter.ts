@@ -1,5 +1,5 @@
 import querystring = require("querystring");
-import { BehaviorSubject, Subscription } from "rxjs";
+import { BehaviorSubject, Observable, Subscription } from "rxjs";
 import { parse } from "url";
 import { IPage, IPageRoute, IRoute, IRouter } from "./typings";
 export interface IRouterRequest {
@@ -121,7 +121,7 @@ class ClassicRouter implements IRouter {
     protected routes: IRouteHandler[] = [];
     protected currentRequest: IRouterRequest;
     protected urlSubscription: Subscription;
-    constructor(protected config: { url$: BehaviorSubject<string> }) {
+    constructor(protected config: { url$: Observable<string> }) {
         this.onInit();
         this.urlSubscription = this.config.url$.subscribe((url) => {
             this.navigate({

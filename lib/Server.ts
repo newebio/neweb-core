@@ -2,9 +2,11 @@ import debug = require("debug");
 import { Subject } from "rxjs";
 import { filter, map } from "rxjs/operators";
 import uid = require("uid-safe");
+import Seance from "./Seance";
 import {
-    IControllerActionMessage, INavigateMessage, ISeance, ISeanceClient,
-    ISeanceInitializeMessage, ISeancesFactory, IServerTransport, IServerTransportClient,
+    IControllerActionMessage, IControllersFactory, INavigateMessage, IRoutersFactory,
+    ISeance, ISeanceClient, ISeanceInitializeMessage,
+    IServerTransport, IServerTransportClient,
 } from "./typings";
 
 interface ISeanceRequestParams {
@@ -15,7 +17,8 @@ interface ISeanceRequestParams {
     extraInfo: any;
 }
 export interface IServerConfig {
-    SeancesFactory: ISeancesFactory;
+    RoutersFactory: IRoutersFactory;
+    ControllersFactory: IControllersFactory;
     transport: IServerTransport;
 }
 class Server {
@@ -84,7 +87,11 @@ class Server {
     }
     protected async createSeance(params: ISeanceRequestParams) {
         const seanceId = await this.generateSeanceId();
-        const seance = await this.config.SeancesFactory.createSeance(params);
+        const seance = new Seance({
+            ControllersFactory: this.config.ControllersFactory,
+            RoutersFactory: this.config.RoutersFactory,
+        });
+        await seance.initialize(params);
         const now = new Date();
         this.seances[seanceId] = {
             seance,
