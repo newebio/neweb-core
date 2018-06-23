@@ -1,10 +1,10 @@
-import { empty, Subject } from "rxjs";
+import { Subject } from "rxjs";
 import { IController } from "./typings";
 
 export class BaseController implements IController {
-    public postMessage = new Subject();
-    public onMessage = empty();
-    public onChangeParams = new Subject();
+    public postMessage = new Subject<any>();
+    public onMessage = new Subject<any>();
+    public onChangeParams = new Subject<any>();
     public init() {
         return {};
     }

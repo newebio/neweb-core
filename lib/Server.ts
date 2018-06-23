@@ -61,11 +61,12 @@ export class Server {
                 .pipe(filter((message) => message.type === "navigate"),
                     map((message: INavigateMessage) => message.body)),
         };
-        seanceClient.onControllerMessage.subscribe((body) =>
+        seanceClient.onControllerMessage.subscribe((body) => {
             transportClient.outputMessage$.next({
                 type: "controller-message",
                 body,
-            }));
+            });
+        });
         seanceClient.emitNewPage.subscribe((body) =>
             transportClient.outputMessage$.next({
                 type: "new-page",

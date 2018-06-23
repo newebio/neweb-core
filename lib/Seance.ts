@@ -3,8 +3,8 @@ import { BehaviorSubject, Subscription } from "rxjs";
 import { skip, take } from "rxjs/operators";
 import {
     IController, IControllerMessageParams,
-    IControllersFactory, IPage, IRoute, IRoutePage, IRouter, IRoutersFactory,
-    ISeance, ISeanceClient, ISeanceInitializeParams,
+    IControllersFactory, IPage, IRoute, IRoutePage, IRouter,
+    IRoutersFactory, ISeance, ISeanceClient, ISeanceInitializeParams,
 } from "./typings";
 import { fillPage, routeToPage } from "./util/page";
 import PageComparator from "./util/PageComparator";
@@ -97,15 +97,14 @@ export class Seance implements ISeance {
         });
         await Promise.all<any>(info.newFrames.map(async (frame) => {
             const controller = await this.config.ControllersFactory.create(frame.frameName);
-            const data = await controller.init();
+            frame.data = await controller.init();
             const id = frame.frameId;
             const subscriptions: Subscription[] = [];
-            subscriptions.push(controller.onMessage.subscribe((message) => this.emitControllerMessage({
+            subscriptions.push(controller.onMessage.subscribe((message) => this.onControllerMessage({
                 id,
                 message,
             })));
             this.controllers[id] = { controller, subscriptions };
-            frame.data = data;
         }).concat(changeParamsPromises));
         return info.page;
     }
