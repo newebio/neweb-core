@@ -14,14 +14,6 @@ export async function fillPage(
 }
 export async function fillFrame(controllerFactory: IControllersFactory, frame: IPageFrame) {
     const controller = await controllerFactory.create(frame.frameName);
-    const data: any = {};
-    const sourceData = controller.data;
-    if (sourceData) {
-        Object.keys(sourceData).map((dataName) => {
-            data[dataName] = sourceData[dataName].getValue();
-        });
-    }
-    frame.data = data;
-    frame.actions = Object.keys(controller.actions || {});
+    frame.data = await controller.init();
     return controller;
 }

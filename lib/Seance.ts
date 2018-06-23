@@ -2,13 +2,9 @@ import debug = require("debug");
 import { BehaviorSubject, Subscription } from "rxjs";
 import { skip, take } from "rxjs/operators";
 import {
-    IController, IControllerActionParams, IControllerDataParams, IControllersFactory, IPage,
-    IRoute, IRoutePage,
-    IRouter,
-    IRoutersFactory,
-    ISeance,
-    ISeanceClient,
-    ISeanceInitializeParams,
+    IController, IControllerMessageParams,
+    IControllersFactory, IPage, IRoute, IRoutePage, IRouter, IRoutersFactory,
+    ISeance, ISeanceClient, ISeanceInitializeParams,
 } from "./typings";
 import { fillPage, routeToPage } from "./util/page";
 import PageComparator from "./util/PageComparator";
@@ -17,7 +13,7 @@ export interface ISeanceConfig {
     RoutersFactory: IRoutersFactory;
     ControllersFactory: IControllersFactory;
 }
-class Seance implements ISeance {
+export class Seance implements ISeance {
     public page$: BehaviorSubject<IPage>;
     public url$: BehaviorSubject<string>;
     protected client?: ISeanceClient;
@@ -37,17 +33,17 @@ class Seance implements ISeance {
         if (route.type !== "page") {
             throw new Error("");
         }
+        // Create non-filled page from routePage
         const page = await routeToPage(route.page);
         const controllers = await fillPage(this.config.ControllersFactory, page);
         controllers.map(({ id, controller }) => {
-            const controllerData = controller.data;
-            const subscriptions = controllerData ? Object.keys(controller.data || {}).map((fieldName) => {
-                return controllerData[fieldName].subscribe((value) => this.emitControllerData({
+            const subscriptions: Subscription[] = [];
+            subscriptions.push(
+                controller.onMessage.subscribe((message) => this.onControllerMessage({
                     id,
-                    fieldName,
-                    value,
-                }));
-            }) : [];
+                    message,
+                })),
+            );
             this.controllers[id] = { controller, subscriptions };
         });
         this.page$ = new BehaviorSubject(page);
@@ -56,8 +52,7 @@ class Seance implements ISeance {
     public connect(client: ISeanceClient) {
         this.client = client;
         this.client.onNavigate.subscribe((params) => this.navigate(params.url));
-        this.client.onControllerAction.subscribe(this.emitControllerAction);
-
+        this.client.emitControllerMessage.subscribe(this.emitControllerMessage);
         this.page$.subscribe((page) => client.emitNewPage.next({ page }));
     }
     protected async onNewRoute(route: IRoute) {
@@ -74,19 +69,17 @@ class Seance implements ISeance {
     protected navigate = (url: string) => {
         this.url$.next(url);
     }
-    protected emitControllerData = (params: IControllerDataParams) => {
+    protected onControllerMessage = (params: IControllerMessageParams) => {
+        debug("seance")("onControllerMessage", params);
         if (this.client) {
-            this.client.emitControllerData.next(params);
+            this.client.onControllerMessage.next(params);
         }
     }
-    protected emitControllerAction = (params: IControllerActionParams) => {
+    protected emitControllerMessage = (params: IControllerMessageParams) => {
+        debug("seance")("emitControllerMessage", params);
         const controllerItem = this.controllers[params.id];
         if (controllerItem) {
-            const controllerActions = controllerItem.controller.actions;
-            if (!controllerActions || !controllerActions[params.actionName]) {
-                throw new Error("Controller has not action " + params.actionName);
-            }
-            controllerActions[params.actionName].next(params.params);
+            controllerItem.controller.postMessage.next(params.message);
         }
     }
 
@@ -99,25 +92,18 @@ class Seance implements ISeance {
         const changeParamsPromises = info.frameForChangeParams.map(async (frame) => {
             const controller = this.controllers[frame.frameId].controller;
             if (controller.onChangeParams) {
-                return controller.onChangeParams(frame.params);
+                return controller.onChangeParams.next(frame.params);
             }
         });
         await Promise.all<any>(info.newFrames.map(async (frame) => {
             const controller = await this.config.ControllersFactory.create(frame.frameName);
-            if (typeof (controller.init) === "function") {
-                await controller.init();
-            }
+            const data = await controller.init();
             const id = frame.frameId;
-            const data: any = {};
-            const controllerData = controller.data;
-            const subscriptions = controllerData ? Object.keys(controllerData).map((fieldName) => {
-                data[fieldName] = controllerData[fieldName].getValue();
-                return controllerData[fieldName].subscribe((value) => this.emitControllerData({
-                    id,
-                    fieldName,
-                    value,
-                }));
-            }) : [];
+            const subscriptions: Subscription[] = [];
+            subscriptions.push(controller.onMessage.subscribe((message) => this.emitControllerMessage({
+                id,
+                message,
+            })));
             this.controllers[id] = { controller, subscriptions };
             frame.data = data;
         }).concat(changeParamsPromises));

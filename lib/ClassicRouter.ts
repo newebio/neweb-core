@@ -116,7 +116,7 @@ export function RouteWithRedirectOn(
         return next(request, context);
     };
 }
-class ClassicRouter implements IRouter {
+export class ClassicRouter implements IRouter {
     public route$: BehaviorSubject<IRoute>;
     protected routes: IRouteHandler[] = [];
     protected currentRequest: IRouterRequest;

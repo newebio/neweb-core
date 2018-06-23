@@ -25,7 +25,6 @@ class PageCreator {
             frameName,
             frames: children,
             data: {},
-            actions: [],
             params,
         };
     }

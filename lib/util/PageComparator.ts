@@ -65,7 +65,6 @@ class PageComparator {
                 frameId: oldFrame.frameId,
                 frameName: newFrame.frameName,
                 data: newFrame.data,
-                actions: newFrame.actions,
                 frames: childFrames,
                 params: newFrame.params,
             };

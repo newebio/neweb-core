@@ -1,18 +1,18 @@
 import { BehaviorSubject, Subject } from "rxjs";
 import { filter } from "rxjs/operators";
 import {
-    IClientTransport, IControllerActionParams,
-    IControllerDataMessage, IControllerDataParams, INewPageMessage, IPage, NavigateStatus, NetworkStatus,
+    IClientTransport, IControllerMessage,
+    IControllerMessageParams, INewPageMessage, IPage, NavigateStatus, NetworkStatus,
 } from "./typings";
 
 export interface IClientConfig {
     transport: IClientTransport;
     url: string;
 }
-class Client {
-    public emitControllerAction$: Subject<IControllerActionParams>;
+export class Client {
+    public emitControllerMessage$: Subject<IControllerMessageParams>;
     public emitNavigate$: Subject<{ url: string }>;
-    public onControllerData$ = new Subject<IControllerDataParams>();
+    public onControllerMessage$ = new Subject<IControllerMessageParams>();
     public onNewPage$ = new Subject<IPage>();
     // statuses
     public networkStatus$ = new BehaviorSubject<NetworkStatus>("connecting");
@@ -24,9 +24,9 @@ class Client {
     constructor(protected config: IClientConfig) {
         this.url = this.config.url;
         // controller actions
-        this.emitControllerAction$ = new Subject();
-        this.emitControllerAction$.subscribe((body) => config.transport.outputMessage$.next({
-            type: "controller-action",
+        this.emitControllerMessage$ = new Subject();
+        this.emitControllerMessage$.subscribe((body) => config.transport.outputMessage$.next({
+            type: "controller-message",
             body,
         }));
         // navigating
@@ -46,8 +46,8 @@ class Client {
             .pipe(filter((message) => message.type === "new-page"))
             .subscribe((message: INewPageMessage) => this.emitNewPage(message.body.page));
         config.transport.inputMessage$
-            .pipe(filter((message) => message.type === "controller-data"))
-            .subscribe((message: IControllerDataMessage) => this.emitControllerData(message.body));
+            .pipe(filter((message) => message.type === "controller-message"))
+            .subscribe((message: IControllerMessage) => this.onControllerMessage(message.body));
     }
     protected connect = () => {
         this.networkStatus$.next("connected");
@@ -69,8 +69,8 @@ class Client {
         this.navigateStatus$.next("navigating");
         this.onNewPage$.next(page);
     }
-    protected emitControllerData(params: IControllerDataParams) {
-        this.onControllerData$.next(params);
+    protected onControllerMessage(params: IControllerMessageParams) {
+        this.onControllerMessage$.next(params);
     }
 }
 export default Client;

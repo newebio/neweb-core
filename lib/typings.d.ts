@@ -6,35 +6,28 @@ export type NetworkStatus = "connecting" | "connected" | "disconnected";
 export type NavigateStatus = "navigating" | "navigated";
 export interface IClientPageRenderer {
     connect(params: IClientPageRendererConnectParams): void | Promise<void>;
-    onControllerAction: Observable<IControllerActionParams>;
+    emitControllerMessage: Observable<IControllerMessageParams>;
     onNavigate: Observable<string>;
 }
 export interface IClientPageRendererConnectParams {
     networkStatus: Observable<NetworkStatus>;
-    emitControllerData: Observable<IControllerDataParams>;
+    onControllerMessage: Observable<IControllerMessageParams>;
     emitNewPage: Observable<IPage>;
 }
 
 export interface ISeanceClient {
-    emitControllerData: Subject<IControllerDataParams>;
+    onControllerMessage: Subject<IControllerMessageParams>;
     emitNewPage: Subject<{
         page: IPage;
     }>;
-    onControllerAction: Observable<IControllerActionParams>;
+    emitControllerMessage: Observable<IControllerMessageParams>;
     onNavigate: Observable<{
         url: string;
     }>
 }
-export interface IControllerActionParams {
+export interface IControllerMessageParams {
     id: string;
-    actionName: string;
-    params: any;
-}
-
-export interface IControllerDataParams {
-    id: string;
-    fieldName: string;
-    value: any;
+    message: any;
 }
 
 export interface IRouterConfig {
@@ -61,11 +54,11 @@ export interface IControllersFactory {
     create(frameName: string): IController | Promise<IController>;
 }
 export interface IController {
-    dispose?: () => Promise<void> | void;
-    init?: () => Promise<void> | void;
-    onChangeParams?: (params: any) => void | Promise<void>;
-    data?: { [index: string]: BehaviorSubject<any> };
-    actions?: { [index: string]: Subject<any> };
+    dispose: () => Promise<void> | void;
+    init: () => Promise<any> | any;
+    onChangeParams: Subject<any>;
+    postMessage: Subject<any>;
+    onMessage: Observable<any>;
 }
 
 // transports
@@ -79,11 +72,11 @@ export interface IServerTransportClient {
     getSessionId(): string;
     getExtraInfo(): any;
 }
-export type IServerTransportClientOutputMessage = IControllerDataMessage | INewPageMessage;
+export type IServerTransportClientOutputMessage = IControllerMessage | INewPageMessage;
 export type IClientTransportInputMessage = IServerTransportClientOutputMessage;
-export interface IControllerDataMessage {
-    type: "controller-data";
-    body: IControllerDataParams;
+export interface IControllerMessage {
+    type: "controller-message";
+    body: IControllerMessageParams;
 }
 export interface INewPageMessage {
     type: "new-page";
@@ -91,7 +84,7 @@ export interface INewPageMessage {
         page: IPage;
     };
 }
-export type IServerTransportClientInputMessage = ISeanceInitializeMessage | INavigateMessage | IControllerActionMessage;
+export type IServerTransportClientInputMessage = ISeanceInitializeMessage | INavigateMessage | IControllerMessage;
 export type IClientTransportOutputMessage = IServerTransportClientInputMessage;
 export interface ISeanceInitializeMessage {
     type: "initialize";
@@ -105,10 +98,6 @@ export interface INavigateMessage {
     body: {
         url: string;
     }
-}
-export interface IControllerActionMessage {
-    type: "controller-action";
-    body: IControllerActionParams;
 }
 
 export interface IClientTransport {
@@ -136,7 +125,6 @@ export interface IPageFrame {
     frameName: string;
     params: any;
     data: { [index: string]: any };
-    actions: string[];
     frames: {
         [index: string]: FrameId;
     };

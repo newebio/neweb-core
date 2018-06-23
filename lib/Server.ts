@@ -4,9 +4,9 @@ import { filter, map } from "rxjs/operators";
 import uid = require("uid-safe");
 import Seance from "./Seance";
 import {
-    IControllerActionMessage, IControllersFactory, INavigateMessage, IRoutersFactory,
-    ISeance, ISeanceClient, ISeanceInitializeMessage,
-    IServerTransport, IServerTransportClient,
+    IControllerMessage, IControllersFactory, INavigateMessage,
+    IRoutersFactory, ISeance, ISeanceClient,
+    ISeanceInitializeMessage, IServerTransport, IServerTransportClient,
 } from "./typings";
 
 interface ISeanceRequestParams {
@@ -21,7 +21,7 @@ export interface IServerConfig {
     ControllersFactory: IControllersFactory;
     transport: IServerTransport;
 }
-class Server {
+export class Server {
     protected seances: {
         [index: string]: {
             seance: ISeance;
@@ -52,18 +52,18 @@ class Server {
     }
     protected createSeanceClient(transportClient: IServerTransportClient): ISeanceClient {
         const seanceClient: ISeanceClient = {
-            emitControllerData: new Subject(),
+            onControllerMessage: new Subject(),
             emitNewPage: new Subject(),
-            onControllerAction: transportClient.inputMessage$
-                .pipe(filter((message) => message.type === "controller-action"),
-                    map((message: IControllerActionMessage) => message.body)),
+            emitControllerMessage: transportClient.inputMessage$
+                .pipe(filter((message) => message.type === "controller-message"),
+                    map((message: IControllerMessage) => message.body)),
             onNavigate: transportClient.inputMessage$
                 .pipe(filter((message) => message.type === "navigate"),
                     map((message: INavigateMessage) => message.body)),
         };
-        seanceClient.emitControllerData.subscribe((body) =>
+        seanceClient.onControllerMessage.subscribe((body) =>
             transportClient.outputMessage$.next({
-                type: "controller-data",
+                type: "controller-message",
                 body,
             }));
         seanceClient.emitNewPage.subscribe((body) =>
