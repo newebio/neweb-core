@@ -1,6 +1,6 @@
 jest.mock("./util/generateFrameId");
 import { Seance } from "./Seance";
-import { ISeanceClient, IRoute, IPage, IPageCreator } from "./typings";
+import { ISeanceClient, IRoute, IPage } from "./typings";
 import { Subject, BehaviorSubject } from "rxjs";
 import sleep from "sleep-es6";
 describe("Seance tests", () => {

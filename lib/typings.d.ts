@@ -4,14 +4,12 @@ import { EventEmitter } from "events";
 export type NetworkStatus = "connecting" | "connected" | "disconnected";
 export type NavigateStatus = "navigating" | "navigated";
 export interface IClientPageRenderer {
-    connect(params: IClientPageRendererConnectParams): void | Promise<void>;
     emitControllerMessage: Observable<IControllerMessageParams>;
-    onNavigate: Observable<string>;
-}
-export interface IClientPageRendererConnectParams {
-    networkStatus: Observable<NetworkStatus>;
-    onControllerMessage: Observable<IControllerMessageParams>;
-    emitNewPage: Observable<IPage>;
+    onControllerMessage: Subject<IControllerMessageParams>;
+    onChangeNetworkStatus: Subject<NetworkStatus>;
+    onChangeNavigateStatus: Subject<NavigateStatus>;
+    onNavigate: Subject<string>;
+    emitNewPage: Subject<IPage>;
 }
 
 export interface ISeanceClient {
@@ -116,7 +114,7 @@ export interface INavigateMessage {
         url: string;
     };
 }
-
+export interface PageRendererComponent {}
 export interface IClientTransport {
     onConnect: Observable<void>;
     onConnecting: Observable<void>;
