@@ -67,7 +67,7 @@ export interface IRouter {
 }
 
 export interface IControllersFactory {
-    create(frameName: string): IController | Promise<IController>;
+    create(frameName: string, props: IControllerProps<any>): IController | Promise<IController>;
 }
 export interface IController {
     dispose: () => Promise<void> | void;
@@ -76,7 +76,9 @@ export interface IController {
     postMessage: Subject<any>;
     onMessage: Observable<any>;
 }
-
+export interface IControllerProps<P> {
+    params: P;
+}
 // transports
 
 export interface IServerTransport {

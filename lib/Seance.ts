@@ -98,7 +98,7 @@ export class Seance implements ISeance {
         controllers.map(({ id, controller }) => {
             const subscriptions: Subscription[] = [];
             subscriptions.push(
-                controller.onMessage.subscribe((message) =>
+                controller.onMessage.subscribe((message: any) =>
                     this.onControllerMessage({
                         id,
                         message,
@@ -140,7 +140,9 @@ export class Seance implements ISeance {
         await Promise.all<any>(
             info.newFrames
                 .map(async (frame) => {
-                    const controller = await this.config.ControllersFactory.create(frame.frameName);
+                    const controller = await this.config.ControllersFactory.create(frame.frameName, {
+                        params: frame.params,
+                    });
                     frame.data = await controller.init();
                     const id = frame.frameId;
                     const subscriptions: Subscription[] = [];

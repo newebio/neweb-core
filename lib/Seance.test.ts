@@ -1,6 +1,6 @@
 jest.mock("./util/generateFrameId");
 import { Seance } from "./Seance";
-import { ISeanceClient, IRoute, IPage } from "./typings";
+import { ISeanceClient, IRoute, IPage, IControllerProps } from "./typings";
 import { Subject, BehaviorSubject } from "rxjs";
 import sleep from "sleep-es6";
 describe("Seance tests", () => {
@@ -49,9 +49,10 @@ describe("Seance tests", () => {
     });
     it("when router resolve page should create new page and emit to client", async () => {
         expect(router.emitNewUrl.getValue()).toBe("url1");
-        const controllerInitData = { data: "testdata" };
+        const controllerInitData = { data: {} };
         const controllerInit = jest.fn().mockReturnValue(controllerInitData);
-        ControllersFactory.create.mockImplementation((frameName: string) => {
+        ControllersFactory.create.mockImplementation((frameName: string, props: IControllerProps<any>) => {
+            controllerInitData.data = "testdata" + props.params.param1;
             return {
                 init: controllerInit,
                 onMessage: new Subject(),
@@ -63,7 +64,7 @@ describe("Seance tests", () => {
             url: url1,
             rootFrame: {
                 name: "frame1",
-                params: {},
+                params: { param1: "param1Value" },
                 frames: {},
             },
         };
@@ -77,7 +78,7 @@ describe("Seance tests", () => {
                     frameId: frameId1,
                     frameName: "frame1",
                     frames: {},
-                    params: {},
+                    params: { param1: "param1Value" },
                 },
             ],
             rootFrame: frameId1,
@@ -105,7 +106,9 @@ describe("Seance tests", () => {
                         frameId: frameId1,
                         data: controllerInitData,
                         frames: {},
-                        params: {},
+                        params: {
+                            param1: "param1Value",
+                        },
                     },
                 ],
                 url: url1,
