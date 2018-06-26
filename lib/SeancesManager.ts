@@ -1,4 +1,4 @@
-import uid = require("uid-safe");
+import uuidv1 = require("uuid/v1");
 import Seance from "./Seance";
 import { ISeance, IControllersFactory, IRoutersFactory, ISeanceResolvingParams } from "./typings";
 export class SeancesManager {
@@ -45,7 +45,7 @@ export class SeancesManager {
         return seance;
     }
     protected async generateSeanceId() {
-        return uid(20);
+        return uuidv1();
     }
 }
 export default SeancesManager;
