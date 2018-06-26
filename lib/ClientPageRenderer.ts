@@ -22,6 +22,7 @@ export interface IViewProps<PARAMS, DATA, INPUT, OUTPUT> {
     children: BehaviorSubject<{ [index: string]: Component }>;
     params: BehaviorSubject<PARAMS>;
     seance: {
+        navigate: (url: string) => void | Promise<void>;
         networkStatus: Observable<NetworkStatus>;
         navigateStatus: Observable<NavigateStatus>;
     };
@@ -127,6 +128,7 @@ export class ClientPageRenderer implements IClientPageRenderer {
             children,
             params,
             seance: {
+                navigate: (url) => this.onNavigate.next(url),
                 navigateStatus: this.onChangeNavigateStatus,
                 networkStatus: this.onChangeNetworkStatus,
             },
