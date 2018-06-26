@@ -1,7 +1,51 @@
 import querystring = require("querystring");
-import { BehaviorSubject, Observable, Subscription } from "rxjs";
+import { Subscription, Subject } from "rxjs";
 import { parse } from "url";
 import { IPage, IPageRoute, IRoute, IRouter } from "./typings";
+
+export class ClassicRouter implements IRouter {
+    public emitNewUrl = new Subject<string>();
+    public onChangeRoute = new Subject<IRoute>();
+    protected routes: IRouteHandler[] = [];
+    protected currentRequest: IRouterRequest;
+    protected urlSubscription: Subscription;
+    constructor() {
+        this.onInit();
+        this.urlSubscription = this.emitNewUrl.subscribe((url) => {
+            this.navigate({
+                request: {
+                    url,
+                },
+            });
+        });
+    }
+    public addRoute(route: IRouteHandler) {
+        this.routes.push(route);
+    }
+    public async navigate(params: IRouterNavigateParams) {
+        this.currentRequest = params.request;
+        for (const routeHandler of this.routes) {
+            const route = routeHandler(params.request, {});
+            if (route) {
+                this.emitRoute(route);
+                return;
+            }
+        }
+        this.emitRoute({
+            type: "notFound",
+            text: "Unknown request " + params.request.url,
+        });
+    }
+    public async dispose() {
+        this.urlSubscription.unsubscribe();
+    }
+    protected async emitRoute(route: IRoute) {
+        this.onChangeRoute.next(route);
+    }
+    protected onInit() {
+        //
+    }
+}
 export interface IRouterRequest {
     url: string;
 }
@@ -10,20 +54,20 @@ interface IRouterNavigateParams {
 }
 export type IRouteHandler = (request: IRouterRequest, context: any) => null | IRoute;
 export type IRoutePageHandler = (request: IRouterRequest, context: any) => IPageRoute;
-export function MatchedRoute(opts: { path: string; }, next: IRouteHandler): IRouteHandler {
+export function MatchedRoute(opts: { path: string }, next: IRouteHandler): IRouteHandler {
     return (request: IRouterRequest, context) => {
         const paths = opts.path.split("/");
         const regexpArr: string[] = [];
         const paramsNames: string[] = [];
         for (const pathO of paths) {
             if (pathO.indexOf(":") === 0) {
-                regexpArr.push("([^\/]+)");
+                regexpArr.push("([^/]+)");
                 paramsNames.push(pathO.substr(1));
             } else {
                 regexpArr.push(pathO);
             }
         }
-        const regexp = new RegExp("^" + regexpArr.join("\\\/") + "$", "");
+        const regexp = new RegExp("^" + regexpArr.join("\\/") + "$", "");
         const url = parse(request.url);
         const pathname = url.pathname || "/";
         const match = pathname.match(regexp);
@@ -44,7 +88,8 @@ export function PageRouteWithParent(
         parentFrame: string;
         params?: (request: IRouterRequest, context: any) => any;
     },
-    next: IRouteHandler): IRouteHandler {
+    next: IRouteHandler,
+): IRouteHandler {
     return (request: IRouterRequest, context) => {
         const route = next(request, context);
         if (!route || route.type !== "page") {
@@ -74,7 +119,8 @@ export function PageRouteWithAfterLoad(
     params: {
         afterLoad: (page: IPage) => void | Promise<void>;
     },
-    handler: IRoutePageHandler): IRoutePageHandler {
+    handler: IRoutePageHandler,
+): IRoutePageHandler {
     return (request: IRouterRequest, context: any) => {
         const page = handler(request, context);
         page.page.afterLoad = params.afterLoad;
@@ -105,7 +151,8 @@ export function RouteWithRedirectOn(
         condition: (request: IRouterRequest, context: any) => boolean | Promise<boolean>;
         url: (request: IRouterRequest, context: any) => string;
     },
-    next: IRouteHandler): IRouteHandler {
+    next: IRouteHandler,
+): IRouteHandler {
     return (request: IRouterRequest, context: any) => {
         if (params.condition(request, context)) {
             return {
@@ -115,51 +162,5 @@ export function RouteWithRedirectOn(
         }
         return next(request, context);
     };
-}
-export class ClassicRouter implements IRouter {
-    public route$: BehaviorSubject<IRoute>;
-    protected routes: IRouteHandler[] = [];
-    protected currentRequest: IRouterRequest;
-    protected urlSubscription: Subscription;
-    constructor(protected config: { url$: Observable<string> }) {
-        this.onInit();
-        this.urlSubscription = this.config.url$.subscribe((url) => {
-            this.navigate({
-                request: {
-                    url,
-                },
-            });
-        });
-    }
-    public onInit() {
-        //
-    }
-    public addRoute(route: IRouteHandler) {
-        this.routes.push(route);
-    }
-    public async navigate(params: IRouterNavigateParams) {
-        this.currentRequest = params.request;
-        for (const routeHandler of this.routes) {
-            const route = routeHandler(params.request, {});
-            if (route) {
-                this.emitRoute(route);
-                return;
-            }
-        }
-        this.emitRoute({
-            type: "notFound",
-            text: "Unknown request " + params.request.url,
-        });
-    }
-    public async dispose() {
-        this.urlSubscription.unsubscribe();
-    }
-    protected async emitRoute(route: IRoute) {
-        if (!this.route$) {
-            this.route$ = new BehaviorSubject(route);
-        } else {
-            this.route$.next(route);
-        }
-    }
 }
 export default ClassicRouter;

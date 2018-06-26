@@ -1,10 +1,10 @@
-import { IPage, IPageFrame, IRoutePage, IRoutePageFrame } from "./../typings";
-class PageCreator {
+import { IPage, IPageFrame, IRoutePage, IRoutePageFrame, IPageCreator } from "./../typings";
+import { generateFrameId } from "./generateFrameId";
+class PageCreator implements IPageCreator {
     protected nonce = 0;
-    public async createPage(routePage: IRoutePage): Promise<IPage> {
+    public createPage(routePage: IRoutePage): IPage {
         const frames = this.collectFrames(routePage.rootFrame);
-        const pageFrames = await Promise.all(frames.allFrames
-            .map((frame) => this.createFrame(frame.frameId, frame.frame, frame.frames)));
+        const pageFrames = frames.allFrames.map((frame) => this.createFrame(frame.frameId, frame.frame, frame.frames));
         return {
             url: routePage.url,
             frames: pageFrames,
@@ -12,11 +12,13 @@ class PageCreator {
             extraInfo: {},
         };
     }
-    public async createFrame(
-        frameId: string | undefined, routePageFrame: IRoutePageFrame,
-        children: { [index: string]: string }): Promise<IPageFrame> {
+    public createFrame(
+        frameId: string | undefined,
+        routePageFrame: IRoutePageFrame,
+        children: { [index: string]: string },
+    ): IPageFrame {
         if (!frameId) {
-            frameId = this.generateFrameId();
+            frameId = generateFrameId(++this.nonce);
         }
         const frameName = routePageFrame.name;
         const params = routePageFrame.params;
@@ -28,11 +30,8 @@ class PageCreator {
             params,
         };
     }
-    protected generateFrameId() {
-        return (+new Date()).toString() + Math.round(Math.random() * 10000).toString() + ++this.nonce;
-    }
     protected collectFrames(routePageFrame: IRoutePageFrame) {
-        const frameId = this.generateFrameId();
+        const frameId = generateFrameId(++this.nonce);
         let allFrames: Array<{
             frameId: string;
             frame: IRoutePageFrame;

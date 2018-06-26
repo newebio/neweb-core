@@ -1,6 +1,5 @@
 import { Observable, Subject, BehaviorSubject } from "rxjs";
 import { EventEmitter } from "events";
-import Seance from "./Seance";
 
 export type NetworkStatus = "connecting" | "connected" | "disconnected";
 export type NavigateStatus = "navigating" | "navigated";
@@ -23,31 +22,49 @@ export interface ISeanceClient {
     emitControllerMessage: Observable<IControllerMessageParams>;
     onNavigate: Observable<{
         url: string;
-    }>
+    }>;
+    dispose: () => void | Promise<void>;
 }
 export interface IControllerMessageParams {
     id: string;
     message: any;
 }
 
-export interface IRouterConfig {
-    url$: Observable<string>;
-}
+// Factories
 export interface IRoutersFactory {
-    createRouter(params: IRouterConfig): IRouter;
+    createRouter(): IRouter | Promise<IRouter>;
 }
-export interface ISeancesFactory {
-    createSeance(params: ISeanceInitializeParams): ISeance | Promise<ISeance>;
+//
+export interface IPageCreator {
+    createPage(routePage: IRoutePage): IPage | Promise<IPage>;
+}
+export interface ISeancesManager {
+    resolveSeance(params: ISeanceResolvingParams): ISeance | Promise<ISeance>;
+}
+export interface ISeanceRequestParams {
+    client: ISeanceClient;
+    seanceId?: string;
+    sessionId: string;
+    url: string;
+    extraInfo: any;
+}
+export interface ISeanceResolvingParams {
+    seanceId?: string;
+    sessionId: string;
+    url: string;
+    extraInfo: any;
 }
 export interface ISeanceInitializeParams {
     url: string;
 }
 export interface ISeance {
-    page$: Observable<IPage>;
     connect: (client: ISeanceClient) => void | Promise<void>;
+    dispose: () => void | Promise<void>;
 }
 export interface IRouter {
-    route$: Observable<IRoute>;
+    emitNewUrl: Subject<string>;
+    onChangeRoute: Observable<IRoute>;
+    dispose: () => void | Promise<void>;
 }
 
 export interface IControllersFactory {
@@ -64,11 +81,11 @@ export interface IController {
 // transports
 
 export interface IServerTransport {
-    onConnect$: Observable<IServerTransportClient>;
+    onConnect: Observable<IServerTransportClient>;
 }
 export interface IServerTransportClient {
-    inputMessage$: Observable<IServerTransportClientInputMessage>;
-    outputMessage$: Subject<IServerTransportClientOutputMessage>;
+    inputMessage: Observable<IServerTransportClientInputMessage>;
+    outputMessage: Subject<IServerTransportClientOutputMessage>;
     getSessionId(): string;
     getExtraInfo(): any;
 }
@@ -97,15 +114,15 @@ export interface INavigateMessage {
     type: "navigate";
     body: {
         url: string;
-    }
+    };
 }
 
 export interface IClientTransport {
-    onConnect$: Observable<void>;
-    onConnecting$: Observable<void>;
-    onDisconnect$: Observable<void>;
-    inputMessage$: Observable<IServerTransportClientOutputMessage>;
-    outputMessage$: Subject<IServerTransportClientInputMessage>;
+    onConnect: Observable<void>;
+    onConnecting: Observable<void>;
+    onDisconnect: Observable<void>;
+    inputMessage: Observable<IServerTransportClientOutputMessage>;
+    outputMessage: Subject<IServerTransportClientInputMessage>;
 }
 
 // Page

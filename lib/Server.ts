@@ -1,109 +1,78 @@
 import debug = require("debug");
-import { Subject } from "rxjs";
-import { filter, map } from "rxjs/operators";
-import uid = require("uid-safe");
-import Seance from "./Seance";
-import {
-    IControllerMessage, IControllersFactory, INavigateMessage,
-    IRoutersFactory, ISeance, ISeanceClient,
-    ISeanceInitializeMessage, IServerTransport, IServerTransportClient,
-} from "./typings";
+import { Subscription } from "rxjs";
+import { filter } from "rxjs/operators";
 
-interface ISeanceRequestParams {
-    client: ISeanceClient;
-    seanceId?: string;
-    sessionId: string;
-    url: string;
-    extraInfo: any;
+import {
+    IControllersFactory,
+    IRoutersFactory,
+    ISeanceClient,
+    ISeanceInitializeMessage,
+    IServerTransport,
+    IServerTransportClient,
+    ISeanceResolvingParams,
+} from "./typings";
+import SeanceClient from "./SeanceClient";
+import SeancesManager from "./SeancesManager";
+
+export interface ISeanceConnectable {
+    connect(seanceClient: ISeanceClient): void | Promise<void>;
 }
 export interface IServerConfig {
-    RoutersFactory: IRoutersFactory;
-    ControllersFactory: IControllersFactory;
     transport: IServerTransport;
+    seancesManager: {
+        resolveSeance: (params: ISeanceResolvingParams) => ISeanceConnectable | Promise<ISeanceConnectable>;
+    };
 }
 export class Server {
-    protected seances: {
-        [index: string]: {
-            seance: ISeance;
-            sessionId: string;
-            createdAt: Date;
-            lastAccessTime: Date;
-        };
-    } = {};
-    constructor(protected config: IServerConfig) {
-        this.config.transport.onConnect$.subscribe((transportClient) => {
-            debug("server")("new client", transportClient);
-            transportClient.inputMessage$
-                .pipe(filter((message) => message.type === "initialize"))
-                .subscribe((message: ISeanceInitializeMessage) => this.onSeanceRequest({
-                    client: this.createSeanceClient(transportClient),
-                    seanceId: message.body.seanceId,
-                    extraInfo: transportClient.getExtraInfo(),
-                    sessionId: transportClient.getSessionId(),
-                    url: message.body.url,
-                }));
+    public static create(config: {
+        RoutersFactory: IRoutersFactory;
+        ControllersFactory: IControllersFactory;
+        transport: IServerTransport;
+    }) {
+        const seancesManager = new SeancesManager({
+            ControllersFactory: config.ControllersFactory,
+            RoutersFactory: config.RoutersFactory,
+        });
+        return new Server({
+            seancesManager,
+            transport: config.transport,
         });
     }
-    protected async onSeanceRequest(params: ISeanceRequestParams) {
-        debug("server")("initialize", params);
-        const seance = await this.resolveSeance(params);
+
+    protected subscriptions: Subscription[] = [];
+    constructor(protected config: IServerConfig) {}
+    public start() {
+        this.subscriptions.push(this.config.transport.onConnect.subscribe(this.onNewTransportClient));
+    }
+    public stop() {
+        this.subscriptions.map((s) => s.unsubscribe());
+    }
+    protected onNewTransportClient = (transportClient: IServerTransportClient) => {
+        debug("server")("new client", transportClient);
+        const onInitialize = transportClient.inputMessage.pipe(filter((message) => message.type === "initialize"));
+        this.subscriptions.push(
+            onInitialize.subscribe((message: ISeanceInitializeMessage) =>
+                this.onTransportClientInitialize(transportClient, message),
+            ),
+        );
+    };
+    protected onTransportClientInitialize = async (
+        transportClient: IServerTransportClient,
+        message: ISeanceInitializeMessage,
+    ) => {
+        const client = this.createSeanceClient(transportClient);
+        debug("server")("initialize", message);
+        const seance = await this.config.seancesManager.resolveSeance({
+            seanceId: message.body.seanceId,
+            sessionId: transportClient.getSessionId(),
+            url: message.body.url,
+            extraInfo: transportClient.getExtraInfo(),
+        });
         debug("server")("connect seance");
-        seance.connect(params.client);
-    }
+        seance.connect(client);
+    };
     protected createSeanceClient(transportClient: IServerTransportClient): ISeanceClient {
-        const seanceClient: ISeanceClient = {
-            onControllerMessage: new Subject(),
-            emitNewPage: new Subject(),
-            emitControllerMessage: transportClient.inputMessage$
-                .pipe(filter((message) => message.type === "controller-message"),
-                    map((message: IControllerMessage) => message.body)),
-            onNavigate: transportClient.inputMessage$
-                .pipe(filter((message) => message.type === "navigate"),
-                    map((message: INavigateMessage) => message.body)),
-        };
-        seanceClient.onControllerMessage.subscribe((body) => {
-            transportClient.outputMessage$.next({
-                type: "controller-message",
-                body,
-            });
-        });
-        seanceClient.emitNewPage.subscribe((body) =>
-            transportClient.outputMessage$.next({
-                type: "new-page",
-                body,
-            }));
-        return seanceClient;
-    }
-    protected async resolveSeance(params: ISeanceRequestParams) {
-        if (params.seanceId) {
-            const seanceItem = this.seances[params.seanceId];
-            if (seanceItem) {
-                if (seanceItem.sessionId === params.sessionId) {
-                    seanceItem.lastAccessTime = new Date();
-                    return seanceItem.seance;
-                }
-            }
-        }
-        return this.createSeance(params);
-    }
-    protected async createSeance(params: ISeanceRequestParams) {
-        const seanceId = await this.generateSeanceId();
-        const seance = new Seance({
-            ControllersFactory: this.config.ControllersFactory,
-            RoutersFactory: this.config.RoutersFactory,
-        });
-        await seance.initialize(params);
-        const now = new Date();
-        this.seances[seanceId] = {
-            seance,
-            sessionId: params.sessionId,
-            createdAt: now,
-            lastAccessTime: now,
-        };
-        return seance;
-    }
-    protected async generateSeanceId() {
-        return uid(20);
+        return new SeanceClient({ transportClient });
     }
 }
 export default Server;
