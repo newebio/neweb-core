@@ -34,8 +34,15 @@ export interface IRoutersFactory {
     createRouter(): IRouter | Promise<IRouter>;
 }
 //
-export interface IPageCreator {
-    createPage(routePage: IRoutePage): IPage | Promise<IPage>;
+export interface IReplacePageInfo {
+    page: IPage;
+    framesForCreating: IPageFrame[];
+    controllersIdsForRemoving: string[];
+    controllersForChangeParams: Array<{ id: string; params: any }>;
+}
+export interface IPagesGenerator {
+    createPageFromRoute(routePage: IRoutePage): IPage | Promise<IPage>;
+    replacePageFromRoute(oldPage: IPage, routePage: IRoutePage): IReplacePageInfo | Promise<IReplacePageInfo>;
 }
 export interface ISeancesManager {
     resolveSeance(params: ISeanceResolvingParams): ISeance | Promise<ISeance>;

@@ -12,17 +12,15 @@ import {
     ISeance,
     ISeanceClient,
     ISeanceInitializeParams,
-    IPageCreator,
+    IPagesGenerator,
+    IPageFrame,
 } from "./typings";
-import { fillPage } from "./util/page";
-import PageComparator from "./util/PageComparator";
-import PageCreator from "./util/PageCreator";
-
+import PagesGenerator from "./util/PagesGenerator";
 export interface ISeanceConfig {
     url: string;
     ControllersFactory: IControllersFactory;
     router: IRouter;
-    PageCreator: IPageCreator;
+    PagesGenerator: IPagesGenerator;
 }
 export class Seance implements ISeance {
     public static async create(
@@ -33,12 +31,12 @@ export class Seance implements ISeance {
     ) {
         debug("seance")("create new seance", params);
         const router = await params.RoutersFactory.createRouter();
-        const pageCreator = new PageCreator();
+        const pagesGenerator = new PagesGenerator();
         return new Seance({
             url: params.url,
             router,
             ControllersFactory: params.ControllersFactory,
-            PageCreator: pageCreator,
+            PagesGenerator: pagesGenerator,
         });
     }
     protected client?: ISeanceClient;
@@ -86,28 +84,40 @@ export class Seance implements ISeance {
         }
     };
     protected async onNewRoutePage(routePage: IRoutePage) {
-        // Create non-filled page from routePage
         const page = this.page ? await this.replacePage(this.page, routePage) : await this.createPage(routePage);
+
         if (this.client) {
             this.client.emitNewPage.next({ page });
         }
+        this.page = page;
     }
     protected async createPage(routePage: IRoutePage) {
-        const page = await this.config.PageCreator.createPage(routePage);
-        const controllers = await fillPage(this.config.ControllersFactory, page);
-        controllers.map(({ id, controller }) => {
-            const subscriptions: Subscription[] = [];
-            subscriptions.push(
-                controller.onMessage.subscribe((message: any) =>
-                    this.onControllerMessage({
-                        id,
-                        message,
-                    }),
-                ),
-            );
-            this.controllers[id] = { controller, subscriptions };
-        });
+        const page = await this.config.PagesGenerator.createPageFromRoute(routePage);
+        await this.createControllersAndFillFrames(page.frames);
         return page;
+    }
+    protected async createControllersAndFillFrames(frames: IPageFrame[]) {
+        await Promise.all(
+            frames.map(async (frame) => {
+                const controller = await this.config.ControllersFactory.create(frame.frameName, {
+                    params: frame.params,
+                });
+                frame.data = await controller.init();
+                this.addController(frame.frameId, controller);
+            }),
+        );
+    }
+    protected addController(id: string, controller: IController) {
+        const subscriptions: Subscription[] = [];
+        subscriptions.push(
+            controller.onMessage.subscribe((message: any) =>
+                this.onControllerMessage({
+                    id,
+                    message,
+                }),
+            ),
+        );
+        this.controllers[id] = { controller, subscriptions };
     }
     protected navigate = (url: string) => {
         this.router.emitNewUrl.next(url);
@@ -125,40 +135,27 @@ export class Seance implements ISeance {
             controllerItem.controller.postMessage.next(params.message);
         }
     };
+    protected changeControllerParams(id: string, params: any) {
+        const controllerItem = this.controllers[id];
+        if (!controllerItem) {
+            // TODO error;
+            return;
+        }
+        controllerItem.controller.onChangeParams.next(params);
+    }
     protected async replacePage(oldPage: IPage, routePage: IRoutePage): Promise<IPage> {
-        const newPage = await this.config.PageCreator.createPage(routePage);
-        const pageComparator = new PageComparator();
-        const info = pageComparator.getCompareInfo(oldPage, newPage);
-        // TODO WAIT?
-        info.frameidsForRemoving.map((id) => this.removeController(id));
-        const changeParamsPromises = info.frameForChangeParams.map(async (frame) => {
-            const controller = this.controllers[frame.frameId].controller;
-            if (controller.onChangeParams) {
-                return controller.onChangeParams.next(frame.params);
-            }
-        });
-        await Promise.all<any>(
-            info.newFrames
-                .map(async (frame) => {
-                    const controller = await this.config.ControllersFactory.create(frame.frameName, {
-                        params: frame.params,
-                    });
-                    frame.data = await controller.init();
-                    const id = frame.frameId;
-                    const subscriptions: Subscription[] = [];
-                    subscriptions.push(
-                        controller.onMessage.subscribe((message) =>
-                            this.onControllerMessage({
-                                id,
-                                message,
-                            }),
-                        ),
-                    );
-                    this.controllers[id] = { controller, subscriptions };
-                })
-                .concat(changeParamsPromises),
-        );
-        return info.page;
+        const {
+            controllersForChangeParams,
+            framesForCreating,
+            controllersIdsForRemoving,
+            page,
+        } = await this.config.PagesGenerator.replacePageFromRoute(oldPage, routePage);
+        await this.createControllersAndFillFrames(framesForCreating);
+        // remove old
+        controllersIdsForRemoving.map((id) => this.removeController(id));
+        // change params
+        controllersForChangeParams.map(async ({ id, params }) => this.changeControllerParams(id, params));
+        return page;
     }
     protected async removeController(id: string) {
         const controllerItem = this.controllers[id];
