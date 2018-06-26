@@ -37,6 +37,7 @@ describe("Seance tests", () => {
         });
         seanceClient = {
             emitControllerMessage: new Subject(),
+            emitNotFound: new Subject(),
             emitNewPage: new Subject(),
             onControllerMessage: new Subject(),
             onNavigate: new Subject(),

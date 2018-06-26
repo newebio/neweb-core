@@ -75,6 +75,9 @@ export class Seance implements ISeance {
         }
         if (route.type === "notFound") {
             // TODO
+            if (this.client) {
+                this.client.emitNotFound.next(route.text);
+            }
             this.page = undefined;
             return;
         }

@@ -16,6 +16,7 @@ export class SeanceClient implements ISeanceClient {
     public onNavigate: Observable<{
         url: string;
     }>;
+    public emitNotFound = new Subject<string>();
     protected subscriptions: Subscription[] = [];
     constructor({ transportClient }: { transportClient: IServerTransportClient }) {
         this.emitControllerMessage = transportClient.inputMessage.pipe(
@@ -38,6 +39,14 @@ export class SeanceClient implements ISeanceClient {
             this.emitNewPage.subscribe((body) =>
                 transportClient.outputMessage.next({
                     type: "new-page",
+                    body,
+                }),
+            ),
+        );
+        this.subscriptions.push(
+            this.emitNotFound.subscribe((body) =>
+                transportClient.outputMessage.next({
+                    type: "not-found",
                     body,
                 }),
             ),

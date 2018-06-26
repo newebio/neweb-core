@@ -17,6 +17,7 @@ export interface ISeanceClient {
     emitNewPage: Subject<{
         page: IPage;
     }>;
+    emitNotFound: Subject<string>;
     emitControllerMessage: Observable<IControllerMessageParams>;
     onNavigate: Observable<{
         url: string;
@@ -87,8 +88,12 @@ export interface IServerTransportClient {
     getSessionId(): string;
     getExtraInfo(): any;
 }
-export type IServerTransportClientOutputMessage = IControllerMessage | INewPageMessage;
+export type IServerTransportClientOutputMessage = IControllerMessage | INewPageMessage | INotFoundMessage;
 export type IClientTransportInputMessage = IServerTransportClientOutputMessage;
+export interface INotFoundMessage {
+    type: "not-found";
+    body: string;
+}
 export interface IControllerMessage {
     type: "controller-message";
     body: IControllerMessageParams;
