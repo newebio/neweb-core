@@ -11,6 +11,8 @@ var Server_1 = require("./lib/Server");
 exports.Server = Server_1.Server;
 var Seance_1 = require("./lib/Seance");
 exports.Seance = Seance_1.Seance;
+var ClientPageRenderer_1 = require("./lib/ClientPageRenderer");
+exports.ClientPageRenderer = ClientPageRenderer_1.ClientPageRenderer;
 var ClassicRouter_1 = require("./lib/ClassicRouter");
 exports.ClassicRouter = ClassicRouter_1.ClassicRouter;
 __export(require("./lib/ClassicRouter"));

@@ -13,8 +13,8 @@ type Component = PageRendererComponent;
 export interface IClientPageRendererConfig {
     renderRootComponent: (component: Component) => any;
     replaceRootComponent: (component: Component) => any;
-    FrameViewFactory: {
-        create(frameName: string, props: any): Component | Promise<any>;
+    RendererComponentsFactory: {
+        create(name: string, props: any): Component | Promise<any>;
     };
 }
 export interface IViewProps<PARAMS, DATA, INPUT, OUTPUT> {
@@ -131,7 +131,7 @@ export class ClientPageRenderer implements IClientPageRenderer {
                 networkStatus: this.onChangeNetworkStatus,
             },
         };
-        const component = await this.config.FrameViewFactory.create(pageFrame.frameName, props);
+        const component = await this.config.RendererComponentsFactory.create(pageFrame.frameName, props);
 
         const frameItem = {
             controller,

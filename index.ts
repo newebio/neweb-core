@@ -3,6 +3,7 @@ export { BaseController } from "./lib/BaseController";
 export { Client } from "./lib/Client";
 export { Server } from "./lib/Server";
 export { Seance } from "./lib/Seance";
+export { ClientPageRenderer } from "./lib/ClientPageRenderer";
 export { ClassicRouter } from "./lib/ClassicRouter";
 export * from "./lib/ClassicRouter";
 export interface IHistoryContext {
