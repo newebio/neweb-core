@@ -9,9 +9,11 @@ import {
     NavigateStatus,
     NetworkStatus,
 } from "./typings";
+import { ClientPageRenderer } from "./ClientPageRenderer";
 
 export interface IClientConfig {
     transport: IClientTransport;
+    renderer: ClientPageRenderer;
     url: string;
 }
 export class Client {
@@ -45,7 +47,7 @@ export class Client {
                 body,
             });
         });
-
+        // connect transport
         config.transport.onConnect.subscribe(this.connect);
         config.transport.onDisconnect.subscribe(this.disconnect);
         config.transport.onConnecting.subscribe(this.connecting);
@@ -55,6 +57,14 @@ export class Client {
         config.transport.inputMessage
             .pipe(filter((message) => message.type === "controller-message"))
             .subscribe((message: IControllerMessage) => this.onControllerMessage.next(message.body));
+        // connect renderer
+        const renderer = config.renderer;
+        this.onNewPage.subscribe(renderer.emitNewPage);
+        this.onChangeNavigateStatus.subscribe(renderer.onChangeNavigateStatus);
+        this.onChangeNetworkStatus.subscribe(renderer.onChangeNetworkStatus);
+        this.onControllerMessage.subscribe(renderer.onControllerMessage);
+        renderer.emitControllerMessage.subscribe(this.emitControllerMessage);
+        renderer.onNavigate.subscribe((p) => this.emitNavigate.next({ url: p }));
     }
     protected connect = () => {
         this.onChangeNetworkStatus.next("connected");
